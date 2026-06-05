@@ -1,12 +1,18 @@
 #!/bin/bash
-# /usr/bin/box - universal sandbox wrapper with dynamic mounts
+# /usr/bin/box - universal sandbox wrapper
 
 REAL_PWD="$(realpath .)"
 BOX_RC="$HOME/.boxrc"
-
-# detect the real username to mirror the exact path
 BOX_USER="$(whoami)"
-VIRTUAL_HOME="/home/$BOX_USER"
+
+# create a safe temporary passwd file for the sandbox
+PASSWD_TMP="/tmp/box_passwd_$BOX_USER"
+if [ -f /etc/passwd ]; then
+  # replace any potential weird home paths for your user back to the standard one
+  sed "s|^${BOX_USER}:\(.*\):[^:]*$|${BOX_USER}:\1:${HOME}|" /etc/passwd > "$PASSWD_TMP"
+else
+  echo "${BOX_USER}:x:$(id -u):$(id -g)::/home/${BOX_USER}:/bin/bash" > "$PASSWD_TMP"
+fi
 
 BWRAP_ARGS=(
   --ro-bind / /
@@ -15,53 +21,33 @@ BWRAP_ARGS=(
   --tmpfs /tmp
   --tmpfs /run
   --share-net
-  --tmpfs /home
-  --tmpfs "$VIRTUAL_HOME"
+  # overwrite the passwd file with our corrected version
+  --ro-bind "$PASSWD_TMP" /etc/passwd
+  # hide the real home by mounting a fresh tmpfs directly over it
+  --tmpfs "$HOME"
   --bind "$REAL_PWD" "$REAL_PWD"
   --chdir "$REAL_PWD"
-  --setenv HOME "$VIRTUAL_HOME"
+  --setenv HOME "$HOME"
 )
 
 # parse custom mounts from ~/.boxrc
 if [ -f "$BOX_RC" ]; then
-  while IFS= read -r line || [ -n "$line" ]; do
-    # skip comments and empty lines
-    [[ "$line" =~ ^[[:space:]]*# ]] && continue
-    [[ -z "${line// }" ]] && continue
+  while IFS= read -r host_path || [ -n "$host_path" ]; do
+    [[ "$host_path" =~ ^[[:space:]]*# ]] && continue
+    [[ -z "${host_path// }" ]] && continue
 
-    # separate path and mount mode (ro/rw)
-    if [[ "$line" =~ :(ro|rw)$ ]]; then
-      mode="${BASH_REMATCH}"
-      host_path="${line%%:*}"
+    # expand tilde to host home path
+    host_path="${host_path/#\~/$HOME}"
 
-      # expand tilde to host home path
-      host_path="${host_path/#\~/$HOME}"
-
-      if [ -e "$host_path" ]; then
-        # keep the exact path structure in the container
-        container_path="$host_path"
-
-        # create empty mountpoint for single files inside virtual home
-        if [ -f "$host_path" ] && [[ "$container_path" == "$VIRTUAL_HOME/"* ]]; then
-          mkdir -p "$(dirname "$container_path")"
-          touch "$container_path"
-        fi
-
-        # append correct bwrap flag based on mode
-        if [ "$mode" == "rw" ]; then
-          BWRAP_ARGS+=(--bind "$host_path" "$container_path")
-        else
-          BWRAP_ARGS+=(--ro-bind "$host_path" "$container_path")
-        fi
-      fi
+    if [ -e "$host_path" ]; then
+      # create parent directories inline if missing in the new tmpfs home
+      BWRAP_ARGS+=(--dir "$(dirname "$host_path")")
+      BWRAP_ARGS+=(--bind "$host_path" "$host_path")
     fi
   done < "$BOX_RC"
 fi
 
-# fallback to bash if no command is provided
-if [ $# -eq 0 ]; then
-  set -- bash
-fi
+[ $# -eq 0 ] && set -- bash
 
-# execute sandbox
+# execute sandbox and clear the temp file afterwards automatically
 exec bwrap "${BWRAP_ARGS[@]}" "$@"
