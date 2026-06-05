@@ -1,0 +1,26 @@
+# default
+~/.bashrc
+
+# wine
+~/.wine
+
+# x11 compatibility socket and auth
+/tmp/.X11-unix
+~/.Xauthority
+
+# amdgpu driver hardware auth
+/run/udev
+
+# build the directory structure inside the empty tmpfs run
+/run/user
+/run/user/1000
+
+# wayland display server socket
+/run/user/1000/wayland-0
+
+# dbus session bus communication
+/run/user/1000/bus
+
+# pipewire and pulseaudio sockets
+/run/user/1000/pipewire-0
+/run/user/1000/pulse/native

@@ -1,0 +1,7 @@
+# default
+~/.bashrc
+
+# pi agent
+~/.local/bin
+~/.local/lib/node_modules
+~/.pi
