@@ -3,6 +3,11 @@
 
 REAL_PWD="$(realpath .)"
 BOX_RC="$HOME/.boxrc"
+
+# detect the real username to mirror the exact path
+BOX_USER="$(whoami)"
+VIRTUAL_HOME="/home/$BOX_USER"
+
 BWRAP_ARGS=(
   --ro-bind / /
   --dev /dev
@@ -11,10 +16,10 @@ BWRAP_ARGS=(
   --tmpfs /run
   --share-net
   --tmpfs /home
-  --tmpfs /home/runner
+  --tmpfs "$VIRTUAL_HOME"
   --bind "$REAL_PWD" "$REAL_PWD"
   --chdir "$REAL_PWD"
-  --setenv HOME /home/runner
+  --setenv HOME "$VIRTUAL_HOME"
 )
 
 # parse custom mounts from ~/.boxrc
@@ -33,15 +38,11 @@ if [ -f "$BOX_RC" ]; then
       host_path="${host_path/#\~/$HOME}"
 
       if [ -e "$host_path" ]; then
-        # remap host home subfolders to container runner home
-        if [[ "$host_path" == "$HOME"* ]]; then
-          container_path="${host_path/$HOME//home/runner}"
-        else
-          container_path="$host_path"
-        fi
+        # keep the exact path structure in the container
+        container_path="$host_path"
 
         # create empty mountpoint for single files inside virtual home
-        if [ -f "$host_path" ] && [[ "$container_path" == "/home/runner/"* ]]; then
+        if [ -f "$host_path" ] && [[ "$container_path" == "$VIRTUAL_HOME/"* ]]; then
           mkdir -p "$(dirname "$container_path")"
           touch "$container_path"
         fi
