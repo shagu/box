@@ -1,0 +1,66 @@
+#!/bin/bash
+# /usr/bin/box - universal sandbox wrapper with dynamic mounts
+
+REAL_PWD="$(realpath .)"
+BOX_RC="$HOME/.boxrc"
+BWRAP_ARGS=(
+  --ro-bind / /
+  --dev /dev
+  --proc /proc
+  --tmpfs /tmp
+  --tmpfs /run
+  --share-net
+  --tmpfs /home
+  --tmpfs /home/runner
+  --bind "$REAL_PWD" "$REAL_PWD"
+  --chdir "$REAL_PWD"
+  --setenv HOME /home/runner
+)
+
+# parse custom mounts from ~/.boxrc
+if [ -f "$BOX_RC" ]; then
+  while IFS= read -r line || [ -n "$line" ]; do
+    # skip comments and empty lines
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ -z "${line// }" ]] && continue
+
+    # separate path and mount mode (ro/rw)
+    if [[ "$line" =~ :(ro|rw)$ ]]; then
+      mode="${BASH_REMATCH}"
+      host_path="${line%%:*}"
+
+      # expand tilde to host home path
+      host_path="${host_path/#\~/$HOME}"
+
+      if [ -e "$host_path" ]; then
+        # remap host home subfolders to container runner home
+        if [[ "$host_path" == "$HOME"* ]]; then
+          container_path="${host_path/$HOME//home/runner}"
+        else
+          container_path="$host_path"
+        fi
+
+        # create empty mountpoint for single files inside virtual home
+        if [ -f "$host_path" ] && [[ "$container_path" == "/home/runner/"* ]]; then
+          mkdir -p "$(dirname "$container_path")"
+          touch "$container_path"
+        fi
+
+        # append correct bwrap flag based on mode
+        if [ "$mode" == "rw" ]; then
+          BWRAP_ARGS+=(--bind "$host_path" "$container_path")
+        else
+          BWRAP_ARGS+=(--ro-bind "$host_path" "$container_path")
+        fi
+      fi
+    fi
+  done < "$BOX_RC"
+fi
+
+# fallback to bash if no command is provided
+if [ $# -eq 0 ]; then
+  set -- bash
+fi
+
+# execute sandbox
+exec bwrap "${BWRAP_ARGS[@]}" "$@"
