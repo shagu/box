@@ -2,8 +2,17 @@
 # /usr/bin/box - universal sandbox wrapper
 
 REAL_PWD="$(realpath .)"
-BOX_RC="$HOME/.boxrc"
 BOX_USER="$(whoami)"
+
+# profile and command parsing
+PROFILE="${1:-default}"
+shift
+
+if [ "$PROFILE" = "--" ]; then
+  PROFILE="default"
+fi
+
+BOX_RC="$HOME/.config/box/$PROFILE"
 
 # create a safe temporary passwd file for the sandbox
 PASSWD_TMP="/tmp/box_passwd_$BOX_USER"
@@ -30,7 +39,7 @@ BWRAP_ARGS=(
   --setenv HOME "$HOME"
 )
 
-# parse custom mounts from ~/.boxrc
+# parse custom mounts from profile config
 if [ -f "$BOX_RC" ]; then
   while IFS= read -r host_path || [ -n "$host_path" ]; do
     # skip comments and empty lines
@@ -48,12 +57,11 @@ if [ -f "$BOX_RC" ]; then
   done < "$BOX_RC"
 fi
 
-# if we launch bash, inject the prompt prefix safely
-if [ $# -eq 0 ] || [ "$1" = "bash" ]; then
-  [ "$1" = "bash" ] && shift
+# if no command given, default to bash
+if [ $# -eq 0 ]; then
   # inject shield emoji dynamically without breaking original ps1
   BWRAP_ARGS+=(--setenv BASH_ENV "$HOME/.bashrc" --setenv PROMPT_COMMAND 'export PS1="🛡️  $PS1"; unset PROMPT_COMMAND')
-  set -- bash "$@"
+  set -- bash
 fi
 
 # execute sandbox
