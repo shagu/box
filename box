@@ -33,6 +33,7 @@ BWRAP_ARGS=(
 # parse custom mounts from ~/.boxrc
 if [ -f "$BOX_RC" ]; then
   while IFS= read -r host_path || [ -n "$host_path" ]; do
+    # skip comments and empty lines
     [[ "$host_path" =~ ^[[:space:]]*# ]] && continue
     [[ -z "${host_path// }" ]] && continue
 
@@ -47,7 +48,13 @@ if [ -f "$BOX_RC" ]; then
   done < "$BOX_RC"
 fi
 
-[ $# -eq 0 ] && set -- bash
+# if we launch bash, inject the prompt prefix safely
+if [ $# -eq 0 ] || [ "$1" = "bash" ]; then
+  [ "$1" = "bash" ] && shift
+  # inject shield emoji dynamically without breaking original ps1
+  BWRAP_ARGS+=(--setenv BASH_ENV "$HOME/.bashrc" --setenv PROMPT_COMMAND 'export PS1="🛡️  $PS1"; unset PROMPT_COMMAND')
+  set -- bash "$@"
+fi
 
-# execute sandbox and clear the temp file afterwards automatically
+# execute sandbox
 exec bwrap "${BWRAP_ARGS[@]}" "$@"
