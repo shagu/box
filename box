@@ -26,6 +26,7 @@ fi
 BWRAP_ARGS=(
   --ro-bind / /
   --dev /dev
+  --dev-bind /dev/dri /dev/dri
   --proc /proc
   --tmpfs /tmp
   --tmpfs /run
