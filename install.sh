@@ -1,15 +1,15 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 BIN_URL="https://raw.githubusercontent.com/shagu/box/refs/heads/master/box"
 BASE_CONFIG_URL="https://raw.githubusercontent.com/shagu/box/refs/heads/master/config/"
-CONFIG_FILES=("default" "pi" "wine")
+CONFIG_FILES="default pi wine"
 
 # root helper: use sudo if available, fall back to su
 root_cmd() {
-  if command -v sudo &>/dev/null; then
+  if command -v sudo >/dev/null 2>&1; then
     sudo "$@"
-  elif command -v su &>/dev/null; then
+  elif command -v su >/dev/null 2>&1; then
     su -c "$*" "${SUDO_USER:-root}"
   else
     echo "  error: neither sudo nor su found, cannot run as root."
@@ -20,11 +20,11 @@ root_cmd() {
 echo "Installing box sandbox wrapper..."
 
 # check for bwrap
-if ! command -v bwrap &>/dev/null; then
+if ! command -v bwrap >/dev/null 2>&1; then
   echo "  bwrap not found, installing..."
-  if command -v pacman &>/dev/null; then
+  if command -v pacman >/dev/null 2>&1; then
     root_cmd pacman -S --needed --noconfirm bubblewrap
-  elif command -v apt &>/dev/null; then
+  elif command -v apt >/dev/null 2>&1; then
     root_cmd apt install -y bubblewrap
   else
     echo "  error: bwrap required but not found, and no pacman/apt to install it."
@@ -35,11 +35,14 @@ fi
 # install binary to /usr/bin
 if [ -f /usr/bin/box ]; then
   echo "  /usr/bin/box already exists. Overwrite? [y/N]"
-  read -r answer
-  if [[ "$answer" != [yY] && "$answer" != [yY][eE][sS] ]]; then
-    echo "  skipping install."
-    exit 0
-  fi
+  read -r answer < /dev/tty
+  case "$answer" in
+    [yY]|[yY][eE][sS]) ;;
+    *)
+      echo "  skipping install."
+      exit 0
+      ;;
+  esac
 fi
 echo "  downloading and installing /usr/bin/box..."
 TMPBIN="$(mktemp)"
@@ -49,7 +52,7 @@ rm -f "$TMPBIN"
 
 # install config files to ~/.config/box
 mkdir -p "$HOME/.config/box"
-for cfg in "${CONFIG_FILES[@]}"; do
+for cfg in $CONFIG_FILES; do
   echo "  installing config/$cfg..."
   curl -s -o "$HOME/.config/box/$cfg" "${BASE_CONFIG_URL}${cfg}"
 done
