@@ -14,6 +14,14 @@ The tool uses a multi-profile approach. It is designed to be minimal and follows
 
 You will need `bwrap` (bubblewrap) installed, which is available in most common distributions or via your package manager.
 
+### Quick install
+
+```bash
+curl https://raw.githubusercontent.com/shagu/box/refs/heads/master/install.sh | bash
+```
+
+### Manual install
+
 Copy `box` to `/usr/bin/box` and the `config` directory to `~/.config/box`.
 
 ## Usage
