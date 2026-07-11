@@ -17,7 +17,7 @@ You will need `bwrap` (bubblewrap) installed, which is available in most common 
 ### Quick install
 
 ```bash
-curl https://raw.githubusercontent.com/shagu/box/refs/heads/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/shagu/box/refs/heads/master/install.sh | sh
 ```
 
 ### Manual install
