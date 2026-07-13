@@ -1,9 +1,17 @@
 #!/bin/sh
 set -eu
 
-BIN_URL="https://raw.githubusercontent.com/shagu/box/refs/heads/master/box"
-BASE_CONFIG_URL="https://raw.githubusercontent.com/shagu/box/refs/heads/master/config/"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONFIG_FILES="default pi wine"
+
+# Detect install mode: local source or GitHub
+if [ -f "$SCRIPT_DIR/box" ] && [ -d "$SCRIPT_DIR/config" ]; then
+  MODE="local"
+else
+  MODE="github"
+  BIN_URL="https://raw.githubusercontent.com/shagu/box/refs/heads/master/box"
+  BASE_CONFIG_URL="https://raw.githubusercontent.com/shagu/box/refs/heads/master/config/"
+fi
 
 # root helper: use sudo if available, fall back to su
 root_cmd() {
@@ -44,17 +52,35 @@ if [ -f /usr/bin/box ]; then
       ;;
   esac
 fi
-echo "  downloading and installing /usr/bin/box..."
-TMPBIN="$(mktemp)"
-curl -s -o "$TMPBIN" "$BIN_URL"
-root_cmd install -m 0755 "$TMPBIN" /usr/bin/box
-rm -f "$TMPBIN"
+
+case "$MODE" in
+  local)
+    echo "  mode: local (from source directory)"
+    echo "  copying box to /usr/bin/box..."
+    root_cmd install -m 0755 "$SCRIPT_DIR/box" /usr/bin/box
+    ;;
+  github)
+    echo "  mode: github (downloading from repository)"
+    echo "  downloading and installing /usr/bin/box..."
+    TMPBIN="$(mktemp)"
+    curl -s -o "$TMPBIN" "$BIN_URL"
+    root_cmd install -m 0755 "$TMPBIN" /usr/bin/box
+    rm -f "$TMPBIN"
+    ;;
+esac
 
 # install config files to ~/.config/box
 mkdir -p "$HOME/.config/box"
 for cfg in $CONFIG_FILES; do
   echo "  installing config/$cfg..."
-  curl -s -o "$HOME/.config/box/$cfg" "${BASE_CONFIG_URL}${cfg}"
+  case "$MODE" in
+    local)
+      cp "$SCRIPT_DIR/config/$cfg" "$HOME/.config/box/$cfg"
+      ;;
+    github)
+      curl -s -o "$HOME/.config/box/$cfg" "${BASE_CONFIG_URL}${cfg}"
+      ;;
+  esac
 done
 
 echo ""
