@@ -53,6 +53,9 @@ if [ -f /usr/bin/box ]; then
   esac
 fi
 
+TMPBIN=""
+trap 'rm -f "$TMPBIN"' EXIT
+
 case "$MODE" in
   local)
     echo "  mode: local (from source directory)"
@@ -65,7 +68,6 @@ case "$MODE" in
     TMPBIN="$(mktemp)"
     curl -s -o "$TMPBIN" "$BIN_URL"
     root_cmd install -m 0755 "$TMPBIN" /usr/bin/box
-    rm -f "$TMPBIN"
     ;;
 esac
 
