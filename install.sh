@@ -13,6 +13,25 @@ else
   BASE_CONFIG_URL="https://raw.githubusercontent.com/shagu/box/refs/heads/master/config/"
 fi
 
+# uninstall support
+if [ "${1:-}" = "--uninstall" ]; then
+  echo "Uninstalling box..."
+  if [ -f /usr/bin/box ]; then
+    echo "  removing /usr/bin/box..."
+    root_cmd rm -f /usr/bin/box
+  else
+    echo "  /usr/bin/box not found, nothing to remove."
+  fi
+  if [ -d "$HOME/.config/box" ]; then
+    echo "  removing $HOME/.config/box..."
+    rm -rf "$HOME/.config/box"
+  else
+    echo "  $HOME/.config/box not found, nothing to remove."
+  fi
+  echo "Done!"
+  exit 0
+fi
+
 # root helper: use sudo if available, fall back to su
 root_cmd() {
   if command -v sudo >/dev/null 2>&1; then
